@@ -1,0 +1,10 @@
+body {
+    margin: 0;
+    overflow: hidden; /* Remove barras de rolagem */
+}
+
+#gameCanvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
