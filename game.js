@@ -19,7 +19,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 // Luzes
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
 scene.add(ambientLight);
-// MUDANÇA AQUI: Corrigido o erro de digitação (DirectionLigh -> DirectionalLight)
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); 
 directionalLight.position.set(5, 10, 7);
 scene.add(directionalLight);
@@ -44,16 +43,26 @@ let temCaixa = false;
 let pontuacao = 0;
 let tempoRestante = 180; 
 let destinationObject = null;
-const collisionDistance = 10; 
+const collisionDistance = 15; 
 let gameStarted = false; 
-
-// Posições "Mapeadas" (Y=2 para flutuar)
-const pickupLocation = new THREE.Vector3(10, 2, 10); 
-const dropoffLocation = new THREE.Vector3(-15, 0.5, -10);
 
 // Elementos da UI (para atualizar)
 const timerDisplay = document.getElementById('timer-display');
 const scoreDisplay = document.getElementById('score-display');
+
+// --- MUDANÇA: O NOSSO MAPA! ---
+// Esta é a nossa lista de locais. Use a ferramenta (Shift+Click) para adicionar mais!
+// O 'y: 3' é para garantir que flutua.
+const listaDeLocais = [
+    new THREE.Vector3(10, 3, 10),
+    new THREE.Vector3(-15, 3, -10),
+    new THREE.Vector3(20, 3, 25),
+    new THREE.Vector3(-30, 3, 15),
+    new THREE.Vector3(5, 3, -20)
+];
+let localAtualPickup = new THREE.Vector3();
+let localAtualDropoff = new THREE.Vector3();
+// --- FIM DA MUDANÇA ---
 
 // --- Criar o Destino (Anel Brilhante) ---
 function createDestinationMarker() {
@@ -61,89 +70,109 @@ function createDestinationMarker() {
     const material = new THREE.MeshBasicMaterial({ color: 0xffff00 }); 
     destinationObject = new THREE.Mesh(geometry, material);
     destinationObject.rotation.x = Math.PI / 2; 
-    destinationObject.position.copy(dropoffLocation);
     destinationObject.visible = false; 
     scene.add(destinationObject);
 }
 createDestinationMarker();
 
+// --- FERRAMENTA DE MAPEAMENTO (NOVO!) ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function onMouseClick(event) {
+    // Só ativa se o SHIFT estiver pressionado
+    if (!event.shiftKey) {
+        return;
+    }
+
+    // Converte a posição do rato para coordenadas do Three.js
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Dispara o raio
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    if (intersects.length > 0) {
+        // Encontra o ponto exato onde o raio bateu
+        const point = intersects[0].point;
+        console.log("COORDENADA MAPEADA (use isto na 'listaDeLocais'):");
+        // Arredonda os números para 2 casas decimais e ajusta o Y
+        console.log(`new THREE.Vector3(${point.x.toFixed(2)}, 3, ${point.z.toFixed(2)}),`);
+    }
+}
+window.addEventListener('click', onMouseClick);
+// --- FIM DA FERRAMENTA DE MAPEAMENTO ---
+
 // --- Carregar Modelos ---
-// 1. Carregar a Cidade
-loader.load(
-    'src/cidade.glb', 
-    (gltf) => {
-        city = gltf.scene;
-        city.scale.set(0.1, 0.1, 0.1);
-        scene.add(city);
-        console.log("Cidade carregada!");
-    },
-    undefined,
-    (error) => {
-        console.error('Erro ao carregar a cidade', error);
-    }
-);
+loader.load('src/cidade.glb', (gltf) => {
+    city = gltf.scene;
+    city.scale.set(0.1, 0.1, 0.1);
+    scene.add(city);
+    console.log("Cidade carregada!");
+});
 
-// 2. Carregar o Caminhãozinho
-loader.load(
-    'src/caminhaozinho.glb', 
-    (gltf) => {
-        playerTruck = gltf.scene;
-        playerTruck.position.y = 2; // Y=2 para flutuar
-        playerTruck.scale.set(15, 15, 15);
-        playerTruck.rotation.y = Math.PI / 2; 
+loader.load('src/caminhaozinho.glb', (gltf) => {
+    playerTruck = gltf.scene;
+    playerTruck.position.y = 3; 
+    playerTruck.scale.set(15, 15, 15);
+    playerTruck.rotation.y = Math.PI / 2; 
 
-        playerTruck.traverse((child) => {
-            if (child.isMesh) {
-                child.material.side = THREE.DoubleSide; 
-                child.material.transparent = false; 
-                child.material.depthWrite = true; 
-            }
-        });
-        
-        scene.add(playerTruck);
-        console.log("Caminhão carregado!");
-    },
-    undefined,
-    (error) => {
-        console.error('Erro ao carregar o camião', error);
-    }
-);
+    playerTruck.traverse((child) => {
+        if (child.isMesh) {
+            child.material.side = THREE.DoubleSide; 
+            child.material.transparent = false; 
+            child.material.depthWrite = true; 
+        }
+    });
+    
+    scene.add(playerTruck);
+    console.log("Caminhão carregado!");
+});
 
-// 3. Carregar a Caixinha
-loader.load(
-    'src/caixinha.glb', 
-    (gltf) => {
-        packageBox = gltf.scene;
-        packageBox.position.copy(pickupLocation); 
-        packageBox.scale.set(5, 5, 5);
-        
-        packageBox.traverse((child) => {
-            if (child.isMesh) {
-                child.material.side = THREE.DoubleSide;
-            }
-        });
-        scene.add(packageBox);
-        console.log("Caixinha carregada!");
-    },
-    undefined,
-    (error) => {
-        console.error('Erro ao carregar a caixinha', error);
-    }
-);
+loader.load('src/caixinha.glb', (gltf) => {
+    packageBox = gltf.scene;
+    packageBox.scale.set(5, 5, 5);
+    packageBox.traverse((child) => {
+        if (child.isMesh) child.material.side = THREE.DoubleSide;
+    });
+    
+    // MUDANÇA: Escolhe o primeiro local aleatório
+    spawnNewPackage(); 
+    scene.add(packageBox);
+    console.log("Caixinha carregada!");
+});
 
 // --- "Ouvintes" de Teclado ---
-document.addEventListener('keydown', (event) => {
-    keysPressed[event.key.toLowerCase()] = true;
-}, false);
-document.addEventListener('keyup', (event) => {
-    keysPressed[event.key.toLowerCase()] = false;
-}, false);
+document.addEventListener('keydown', (event) => keysPressed[event.key.toLowerCase()] = true, false);
+document.addEventListener('keyup', (event) => keysPressed[event.key.toLowerCase()] = false, false);
 
-// --- Função de Colisão e Lógica do Jogo ---
+// --- MUDANÇA: LÓGICA DE JOGO ALEATÓRIA ---
+function spawnNewPackage() {
+    // Escolhe um local aleatório da nossa lista
+    const randomIndex = Math.floor(Math.random() * listaDeLocais.length);
+    localAtualPickup.copy(listaDeLocais[randomIndex]);
+    
+    // Garante que o local de entrega é DIFERENTE
+    let dropoffIndex;
+    do {
+        dropoffIndex = Math.floor(Math.random() * listaDeLocais.length);
+    } while (dropoffIndex === randomIndex); // Repete se for o mesmo sítio
+    
+    localAtualDropoff.copy(listaDeLocais[dropoffIndex]);
+
+    // Define as posições dos objetos
+    packageBox.position.copy(localAtualPickup);
+    destinationObject.position.copy(localAtualDropoff);
+    
+    packageBox.visible = true;
+    destinationObject.visible = false;
+    temCaixa = false;
+}
+
+// --- Função de Colisão e Lógica do Jogo (Atualizada) ---
 function checkCollisions() {
-    if (!playerTruck || !packageBox || !destinationObject) {
-        return; 
-    }
+    if (!playerTruck || !packageBox || !destinationObject) return; 
 
     // Lógica 1: Pegar a caixa
     if (!temCaixa) {
@@ -152,7 +181,7 @@ function checkCollisions() {
             console.log("Pegou a caixa!");
             temCaixa = true;
             packageBox.visible = false;
-            destinationObject.visible = true;
+            destinationObject.visible = true; // Mostra o destino
 
             if (!gameStarted) {
                 gameStarted = true;
@@ -164,14 +193,11 @@ function checkCollisions() {
         const distanceToDestination = playerTruck.position.distanceTo(destinationObject.position);
         if (distanceToDestination < collisionDistance) {
             console.log("Entregou!");
-            temCaixa = false;
-            destinationObject.visible = false;
-            
             pontuacao++;
             if(scoreDisplay) scoreDisplay.innerText = pontuacao; 
 
-            packageBox.position.copy(pickupLocation); 
-            packageBox.visible = true;
+            // MUDANÇA: Chama a função para criar uma nova entrega aleatória
+            spawnNewPackage();
         }
     }
 }
@@ -180,7 +206,7 @@ function checkCollisions() {
 function animate() {
     requestAnimationFrame(animate);
     const deltaTime = clock.getDelta();
-    const elapsedTime = clock.getElapsedTime(); // Tempo total para a animação
+    const elapsedTime = clock.getElapsedTime(); 
 
     if (gameStarted && tempoRestante > 0) {
         tempoRestante -= deltaTime;
@@ -189,41 +215,27 @@ function animate() {
         }
     } else if (timerDisplay && tempoRestante <= 0) {
         timerDisplay.innerText = "FIM!";
-        // TODO: Parar o movimento do camião aqui
     }
 
     if (playerTruck) {
         // --- Lógica de Movimento WASD ---
-        if (keysPressed['a']) {
-            playerTruck.rotation.y += rotateSpeed * deltaTime; 
-        }
-        if (keysPressed['d']) {
-            playerTruck.rotation.y -= rotateSpeed * deltaTime; 
-        }
-        // MUDANÇA AQUI: W/S Corrigidos (w = negativo, s = positivo)
-        if (keysPressed['w']) {
-            playerTruck.translateZ(-moveSpeed * deltaTime); 
-        }
-        if (keysPressed['s']) {
-            playerTruck.translateZ(moveSpeed * deltaTime); 
-        }
+        if (keysPressed['a']) playerTruck.rotation.y += rotateSpeed * deltaTime; 
+        if (keysPressed['d']) playerTruck.rotation.y -= rotateSpeed * deltaTime; 
+        if (keysPressed['w']) playerTruck.translateZ(-moveSpeed * deltaTime); 
+        if (keysPressed['s']) playerTruck.translateZ(moveSpeed * deltaTime); 
         
         controls.target.copy(playerTruck.position);
     }
 
     // --- Animação "Crash Bandicoot" na Caixa ---
     if (packageBox && packageBox.visible) {
-        // 1. Girar
         packageBox.rotation.y += 2 * deltaTime; 
-
-        // 2. Flutuar (Onda Senoidal)
         const floatY = Math.sin(elapsedTime * 4) * 0.5;
-        packageBox.position.y = pickupLocation.y + floatY;
+        // MUDANÇA: Usa a altura Y da sua posição de pickup + flutuação
+        packageBox.position.y = localAtualPickup.y + floatY;
     }
 
-
     checkCollisions();
-
     controls.update();
     renderer.render(scene, camera);
 }
