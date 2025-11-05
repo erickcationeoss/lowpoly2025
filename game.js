@@ -6,8 +6,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); 
 
-// --- MUDANÇA AQUI: Posição da Câmara ---
-// Elevada (Y=20) e Puxada para trás (Z=30) para uma melhor visão inicial
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 20, 30); 
 camera.lookAt(0, 0, 0); 
@@ -33,7 +31,7 @@ controls.target.set(0, 0, 0);
 // --- Variáveis do Jogo ---
 let playerTruck = null;
 let city = null;
-let packageBox = null; // NOVO: Variável para a caixinha
+let packageBox = null; 
 const loader = new GLTFLoader();
 const clock = new THREE.Clock(); 
 const keysPressed = {}; 
@@ -46,9 +44,9 @@ loader.load(
     'src/cidade.glb', 
     (gltf) => {
         city = gltf.scene;
-        // --- MUDANÇA AQUI: Escala da Cidade ---
-        // Diminuímos a cidade pela metade. Ajuste 0.5 se necessário.
-        city.scale.set(0.5, 0.5, 0.5);
+        // --- MUDANÇA AQUI: Escala Drástica da Cidade ---
+        // Diminuímos a cidade para 10% do tamanho. Ajuste 0.1 se necessário.
+        city.scale.set(0.1, 0.1, 0.1);
         scene.add(city);
         console.log("Cidade carregada!");
     },
@@ -64,10 +62,8 @@ loader.load(
     (gltf) => {
         playerTruck = gltf.scene;
         playerTruck.position.y = 0.5; 
-        playerTruck.scale.set(20, 20, 20); // Mantemos o camião grande
+        playerTruck.scale.set(20, 20, 20); 
 
-        // --- MUDANÇA AQUI: Rotação do Eixo ---
-        // Rodamos o camião 90 graus (PI/2) para alinhar o "frente"
         playerTruck.rotation.y = Math.PI / 2; 
 
         // Correção de Transparência
@@ -88,18 +84,15 @@ loader.load(
     }
 );
 
-// --- NOVO: Carregar a Caixinha ---
+// 3. Carregar a Caixinha
 loader.load(
     'src/caixinha.glb', 
     (gltf) => {
         packageBox = gltf.scene;
         
-        // Posição de teste (você pode mudar X, Y, Z)
         packageBox.position.set(10, 0.5, 10);
-        // Escala de teste (aumenta o tamanho)
         packageBox.scale.set(5, 5, 5);
         
-        // Correção de bugs (igual ao camião)
         packageBox.traverse((child) => {
             if (child.isMesh) {
                 child.material.side = THREE.DoubleSide;
@@ -132,24 +125,21 @@ function animate() {
     if (playerTruck) {
         // --- Lógica de Movimento WASD ---
         
-        // Virar (Controla a Rotação)
+        // --- MUDANÇA AQUI: Eixo de Rotação Invertido ---
         if (keysPressed['a']) {
-            playerTruck.rotation.y += rotateSpeed * deltaTime; 
+            playerTruck.rotation.y -= rotateSpeed * deltaTime; // Virar à esquerda (era +=)
         }
         if (keysPressed['d']) {
-            playerTruck.rotation.y -= rotateSpeed * deltaTime; 
+            playerTruck.rotation.y += rotateSpeed * deltaTime; // Virar à direita (era -=)
         }
+        // --- Fim da Mudança ---
 
-        // --- MUDANÇA AQUI: Movimento ---
-        // Voltámos para "translateZ", que é o correto
-        // agora que o camião está rodado
         if (keysPressed['w']) {
             playerTruck.translateZ(moveSpeed * deltaTime);
         }
         if (keysPressed['s']) {
             playerTruck.translateZ(-moveSpeed * deltaTime);
         }
-        // --- Fim da Mudança ---
         
         // --- Câmera a Seguir o Camião ---
         controls.target.copy(playerTruck.position);
