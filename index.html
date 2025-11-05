@@ -7,17 +7,32 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- O Canvas é a "tela" onde o jogo 3D será desenhado -->
     <canvas id="gameCanvas"></canvas>
 
+    <!-- NOVO: Interface do Jogo (UI) -->
+    <div id="ui-container">
+        <div class="ui-box">
+            <div>TEMPO</div>
+            <div id="timer-display">180</div>
+        </div>
+        <div class="ui-box">
+            <div>ENTREGAS</div>
+            <div id="score-display">0</div>
+        </div>
+    </div>
+
+    <!-- 1. O Importmap diz ao navegador ONDE achar o "Three.js" -->
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+                "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
             }
         }
     </script>
     
+    <!-- 2. Aqui nós carregamos o nosso "cérebro" -->
     <script type="module" src="game.js"></script>
 </body>
 </html>
