@@ -35,7 +35,7 @@ let packageBox = null;
 const loader = new GLTFLoader();
 const clock = new THREE.Clock(); 
 const keysPressed = {}; 
-const moveSpeed = 10; 
+const moveSpeed = 20; // Aumentei de 10 para 20
 const rotateSpeed = 3;  
 
 // --- Carregar Modelos ---
@@ -62,7 +62,7 @@ loader.load(
     (gltf) => {
         playerTruck = gltf.scene;
         playerTruck.position.y = 0.5; 
-        playerTruck.scale.set(20, 20, 20); 
+        playerTruck.scale.set(15, 15, 15); // MUDANÇA: Diminuí de 20 para 15
 
         playerTruck.rotation.y = Math.PI / 2; 
 
@@ -135,10 +135,10 @@ function animate() {
         // --- Fim da Mudança ---
 
         if (keysPressed['w']) {
-            playerTruck.translateZ(moveSpeed * deltaTime);
+            playerTruck.translateZ(-moveSpeed * deltaTime); // MUDANÇA: Invertido (era positivo)
         }
         if (keysPressed['s']) {
-            playerTruck.translateZ(-moveSpeed * deltaTime);
+            playerTruck.translateZ(moveSpeed * deltaTime); // MUDANÇA: Invertido (era negativo)
         }
         
         // --- Câmera a Seguir o Camião ---
