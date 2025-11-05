@@ -19,7 +19,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 // Luzes
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
 scene.add(ambientLight);
-const directionalLight = new THREE.DirectionLigh(0xffffff, 1.0); 
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
 directionalLight.position.set(5, 10, 7);
 scene.add(directionalLight);
 
