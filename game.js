@@ -53,12 +53,14 @@ const scoreDisplay = document.getElementById('score-display');
 // --- MUDANÇA: O NOSSO MAPA! ---
 // Esta é a nossa lista de locais. Use a ferramenta (Shift+Click) para adicionar mais!
 // O 'y: 3' é para garantir que flutua.
+// MUDANÇA: Lista atualizada com as suas 6 coordenadas mapeadas
 const listaDeLocais = [
-    new THREE.Vector3(10, 3, 10),
-    new THREE.Vector3(-15, 3, -10),
-    new THREE.Vector3(20, 3, 25),
-    new THREE.Vector3(-30, 3, 15),
-    new THREE.Vector3(5, 3, -20)
+    new THREE.Vector3(437.84, 3, -768.54),
+    new THREE.Vector3(-256.48, 3, -1416.59),
+    new THREE.Vector3(-674.71, 3, -1505.63),
+    new THREE.Vector3(-1118.90, 3, -1253.26),
+    new THREE.Vector3(-1615.66, 3, -771.33),
+    new THREE.Vector3(-2724.90, 3, -786.20)
 ];
 let localAtualPickup = new THREE.Vector3();
 let localAtualDropoff = new THREE.Vector3();
