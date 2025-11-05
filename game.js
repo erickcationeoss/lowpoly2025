@@ -35,8 +35,38 @@ let packageBox = null;
 const loader = new GLTFLoader();
 const clock = new THREE.Clock(); 
 const keysPressed = {}; 
-const moveSpeed = 20; // Aumentei de 10 para 20
+const moveSpeed = 40; // MUDANÇA: Aumentado de 20 para 40
 const rotateSpeed = 3;  
+
+// --- LÓGICA DO JOGO (RE-ADICIONADA) ---
+let temCaixa = false;
+let pontuacao = 0;
+let tempoRestante = 180; // 3 minutos
+let destinationObject = null;
+const collisionDistance = 4; // Distância para "pegar" a caixa
+
+// Posições "Mapeadas" (chutadas por agora)
+const pickupLocation = new THREE.Vector3(10, 0.5, 10);
+const dropoffLocation = new THREE.Vector3(-15, 0.5, -10);
+
+// Elementos da UI (para atualizar)
+// IMPORTANTE: O seu index.html precisa de ter <div id="timer-display"> e <div id="score-display">
+const timerDisplay = document.getElementById('timer-display');
+const scoreDisplay = document.getElementById('score-display');
+
+// --- LÓGICA DO JOGO (RE-ADICIONADA): Criar o Destino (Anel Brilhante) ---
+function createDestinationMarker() {
+    const geometry = new THREE.TorusGeometry(3, 0.3, 16, 100);
+    // Material brilhante que não precisa de luz
+    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 }); 
+    destinationObject = new THREE.Mesh(geometry, material);
+    destinationObject.rotation.x = Math.PI / 2; // Deita o anel
+    destinationObject.position.copy(dropoffLocation);
+    destinationObject.visible = false; // Começa escondido
+    scene.add(destinationObject);
+}
+createDestinationMarker(); // Chama a função para criar o anel
+
 
 // --- Carregar Modelos ---
 // 1. Carregar a Cidade
@@ -44,8 +74,6 @@ loader.load(
     'src/cidade.glb', 
     (gltf) => {
         city = gltf.scene;
-        // --- MUDANÇA AQUI: Escala Drástica da Cidade ---
-        // Diminuímos a cidade para 10% do tamanho. Ajuste 0.1 se necessário.
         city.scale.set(0.1, 0.1, 0.1);
         scene.add(city);
         console.log("Cidade carregada!");
@@ -62,8 +90,7 @@ loader.load(
     (gltf) => {
         playerTruck = gltf.scene;
         playerTruck.position.y = 0.5; 
-        playerTruck.scale.set(15, 15, 15); // MUDANÇA: Diminuí de 20 para 15
-
+        playerTruck.scale.set(15, 15, 15);
         playerTruck.rotation.y = Math.PI / 2; 
 
         // Correção de Transparência
@@ -90,7 +117,7 @@ loader.load(
     (gltf) => {
         packageBox = gltf.scene;
         
-        packageBox.position.set(10, 0.5, 10);
+        packageBox.position.copy(pickupLocation); // Usa a posição "mapeada"
         packageBox.scale.set(5, 5, 5);
         
         packageBox.traverse((child) => {
@@ -116,34 +143,79 @@ document.addEventListener('keyup', (event) => {
     keysPressed[event.key.toLowerCase()] = false;
 }, false);
 
+// --- LÓGICA DO JOGO (RE-ADICIONADA): Função de Colisão ---
+function checkCollisions() {
+    if (!playerTruck || !packageBox || !destinationObject) {
+        return; // Ainda não carregou tudo
+    }
+
+    // Lógica 1: Pegar a caixa
+    if (!temCaixa) {
+        const distanceToBox = playerTruck.position.distanceTo(packageBox.position);
+        if (distanceToBox < collisionDistance) {
+            console.log("Pegou a caixa!");
+            temCaixa = true;
+            packageBox.visible = false;
+            destinationObject.visible = true; // Mostra o destino
+        }
+    }
+    // Lógica 2: Entregar a caixa
+    else {
+        const distanceToDestination = playerTruck.position.distanceTo(destinationObject.position);
+        if (distanceToDestination < collisionDistance) {
+            console.log("Entregou!");
+            temCaixa = false;
+            destinationObject.visible = false; // Esconde o destino
+            
+            // Aumenta a pontuação
+            pontuacao++;
+            if(scoreDisplay) scoreDisplay.innerText = pontuacao; // Atualiza a UI
+
+            // Faz a caixa aparecer noutro sítio (pode criar uma lista de locais)
+            packageBox.position.copy(pickupLocation); // Por agora, volta ao início
+            packageBox.visible = true; // Mostra a caixa novamente
+        }
+    }
+}
 
 // --- Loop de Animação (O Cérebro em Ação) ---
 function animate() {
     requestAnimationFrame(animate);
     const deltaTime = clock.getDelta();
 
+    // --- LÓGICA DO JOGO (RE-ADICIONADA): Temporizador ---
+    if (tempoRestante > 0) {
+        tempoRestante -= deltaTime;
+        if (timerDisplay) { // Verifica se o elemento da UI já existe
+            timerDisplay.innerText = Math.floor(tempoRestante);
+        }
+    } else if (timerDisplay) {
+        timerDisplay.innerText = "FIM!";
+        // Aqui podemos parar o jogo
+    }
+
     if (playerTruck) {
         // --- Lógica de Movimento WASD ---
-        
-        // --- MUDANÇA AQUI: Eixo de Rotação Invertido ---
+        // (Usando as suas direções preferidas)
         if (keysPressed['a']) {
-            playerTruck.rotation.y -= rotateSpeed * deltaTime; // Virar à esquerda (era +=)
+            playerTruck.rotation.y -= rotateSpeed * deltaTime; // Virar
         }
         if (keysPressed['d']) {
-            playerTruck.rotation.y += rotateSpeed * deltaTime; // Virar à direita (era -=)
+            playerTruck.rotation.y += rotateSpeed * deltaTime; // Virar
         }
-        // --- Fim da Mudança ---
-
         if (keysPressed['w']) {
-            playerTruck.translateZ(-moveSpeed * deltaTime); // MUDANÇA: Invertido (era positivo)
+            playerTruck.translateZ(-moveSpeed * deltaTime); // Frente
         }
         if (keysPressed['s']) {
-            playerTruck.translateZ(moveSpeed * deltaTime); // MUDANÇA: Invertido (era negativo)
+            playerTruck.translateZ(moveSpeed * deltaTime); // Trás
         }
         
         // --- Câmera a Seguir o Camião ---
         controls.target.copy(playerTruck.position);
     }
+
+    // --- LÓGICA DO JOGO (RE-ADICIONADA): Correr a lógica de colisão ---
+    checkCollisions();
 
     controls.update();
     renderer.render(scene, camera);
