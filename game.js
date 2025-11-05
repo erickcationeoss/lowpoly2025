@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// --- Configuração Básica (Cena, Câmera, Luzes) ---
+// --- Configuração Básica (Cena, Câmara, Luzes) ---
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB); // Fundo de céu azul
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 15); // Posição da câmera (X, Y, Z) - Y é altura
-camera.lookAt(0, 0, 0); // Faz a câmera olhar para o centro
+camera.position.set(0, 5, 15); // Posição da câmara (X, Y, Z) - Y é altura
+camera.lookAt(0, 0, 0); // Faz a câmara olhar para o centro
 
 const renderer = new THREE.WebGLRenderer({ 
     canvas: document.getElementById('gameCanvas'),
@@ -16,7 +16,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-// LUZES (ESSENCIAL! Sem luz, seus modelos ficam pretos)
+// LUZES (ESSENCIAL! Sem luz, os seus modelos ficam pretos)
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Luz ambiente suave
 scene.add(ambientLight);
 
@@ -24,7 +24,7 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Luz do "s
 directionalLight.position.set(5, 10, 7);
 scene.add(directionalLight);
 
-// --- Variáveis para guardar nossos modelos ---
+// --- Variáveis para guardar os nossos modelos ---
 let playerTruck = null;
 let city = null;
 
@@ -33,7 +33,7 @@ const loader = new GLTFLoader();
 
 // 1. Carregar a Cidade
 loader.load(
-    'cidade.glb', // <- VERIFIQUE O NOME DO SEU ARQUIVO!
+    'src/cidade.glb', // <- MUDANÇA AQUI! Adicionámos "src/"
     (gltf) => {
         city = gltf.scene;
         scene.add(city);
@@ -47,16 +47,16 @@ loader.load(
 
 // 2. Carregar o Caminhãozinho
 loader.load(
-    'caminhaozinho.glb', // <- VERIFIQUE O NOME DO SEU ARQUIVO!
+    'src/caminhaozinho.glb', // <- MUDANÇA AQUI! Adicionámos "src/"
     (gltf) => {
         playerTruck = gltf.scene;
-        playerTruck.position.y = 0.5; // Eleva um pouco o caminhão para não ficar dentro do chão
+        playerTruck.position.y = 0.5; // Eleva um pouco o camião para não ficar dentro do chão
         scene.add(playerTruck);
         console.log("Caminhão carregado!");
     },
     undefined,
     (error) => {
-        console.error('Erro ao carregar o caminhão', error);
+        console.error('Erro ao carregar o camião', error);
     }
 );
 
@@ -64,12 +64,8 @@ loader.load(
 function animate() {
     requestAnimationFrame(animate);
 
-    // Futuramente, colocaremos a lógica do jogo aqui (ex: mover o caminhão)
-    if (playerTruck) {
-        // Exemplo bobo: faz o caminhão girar (só para testar)
-        // playerTruck.rotation.y += 0.01;
-    }
-
+    // Futuramente, colocaremos a lógica do jogo aqui (ex: mover o camião)
+    
     renderer.render(scene, camera);
 }
 
