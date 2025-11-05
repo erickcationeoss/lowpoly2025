@@ -19,7 +19,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 // Luzes
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
 scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+// MUDANÇA AQUI: Corrigido o erro de digitação (DirectionLigh -> DirectionalLight)
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); 
 directionalLight.position.set(5, 10, 7);
 scene.add(directionalLight);
 
@@ -43,13 +44,12 @@ let temCaixa = false;
 let pontuacao = 0;
 let tempoRestante = 180; 
 let destinationObject = null;
-const collisionDistance = 10; // MUDANÇA: Aumentado de 4 para 10 (Hitbox maior)
-let gameStarted = false; // MUDANÇA: Novo estado de jogo
+const collisionDistance = 10; 
+let gameStarted = false; 
 
-// Posições "Mapeadas"
-// MUDANÇA: Aumentei a altura Y de 0.5 para 1.5 para flutuar acima do chão
-const pickupLocation = new THREE.Vector3(10, 1.5, 10);
-const dropoffLocation = new THREE.Vector3(-15, 0.5, -10); // O anel pode ficar baixo
+// Posições "Mapeadas" (Y=2 para flutuar)
+const pickupLocation = new THREE.Vector3(10, 2, 10); 
+const dropoffLocation = new THREE.Vector3(-15, 0.5, -10);
 
 // Elementos da UI (para atualizar)
 const timerDisplay = document.getElementById('timer-display');
@@ -88,8 +88,7 @@ loader.load(
     'src/caminhaozinho.glb', 
     (gltf) => {
         playerTruck = gltf.scene;
-        // MUDANÇA: Aumentei a altura Y de 0.5 para 1.5 para não afundar
-        playerTruck.position.y = 1.5; 
+        playerTruck.position.y = 2; // Y=2 para flutuar
         playerTruck.scale.set(15, 15, 15);
         playerTruck.rotation.y = Math.PI / 2; 
 
@@ -115,7 +114,7 @@ loader.load(
     'src/caixinha.glb', 
     (gltf) => {
         packageBox = gltf.scene;
-        packageBox.position.copy(pickupLocation); // Põe no sítio de pickup (já com Y=1.5)
+        packageBox.position.copy(pickupLocation); 
         packageBox.scale.set(5, 5, 5);
         
         packageBox.traverse((child) => {
@@ -143,7 +142,7 @@ document.addEventListener('keyup', (event) => {
 // --- Função de Colisão e Lógica do Jogo ---
 function checkCollisions() {
     if (!playerTruck || !packageBox || !destinationObject) {
-        return; // Ainda não carregou tudo
+        return; 
     }
 
     // Lógica 1: Pegar a caixa
@@ -155,7 +154,6 @@ function checkCollisions() {
             packageBox.visible = false;
             destinationObject.visible = true;
 
-            // MUDANÇA: Inicia o temporizador do jogo!
             if (!gameStarted) {
                 gameStarted = true;
             }
@@ -172,8 +170,7 @@ function checkCollisions() {
             pontuacao++;
             if(scoreDisplay) scoreDisplay.innerText = pontuacao; 
 
-            // Faz a caixa aparecer noutro sítio
-            packageBox.position.copy(pickupLocation); // Por agora, volta ao início
+            packageBox.position.copy(pickupLocation); 
             packageBox.visible = true;
         }
     }
@@ -183,8 +180,8 @@ function checkCollisions() {
 function animate() {
     requestAnimationFrame(animate);
     const deltaTime = clock.getDelta();
+    const elapsedTime = clock.getElapsedTime(); // Tempo total para a animação
 
-    // MUDANÇA: O temporizador só conta se o jogo tiver começado
     if (gameStarted && tempoRestante > 0) {
         tempoRestante -= deltaTime;
         if (timerDisplay) { 
@@ -192,9 +189,8 @@ function animate() {
         }
     } else if (timerDisplay && tempoRestante <= 0) {
         timerDisplay.innerText = "FIM!";
-        // Aqui podemos parar o jogo (ex: parar o movimento)
+        // TODO: Parar o movimento do camião aqui
     }
-
 
     if (playerTruck) {
         // --- Lógica de Movimento WASD ---
@@ -204,15 +200,27 @@ function animate() {
         if (keysPressed['d']) {
             playerTruck.rotation.y -= rotateSpeed * deltaTime; 
         }
+        // MUDANÇA AQUI: W/S Corrigidos (w = negativo, s = positivo)
         if (keysPressed['w']) {
-            playerTruck.translateZ(moveSpeed * deltaTime); 
+            playerTruck.translateZ(-moveSpeed * deltaTime); 
         }
         if (keysPressed['s']) {
-            playerTruck.translateZ(-moveSpeed * deltaTime); 
+            playerTruck.translateZ(moveSpeed * deltaTime); 
         }
         
         controls.target.copy(playerTruck.position);
     }
+
+    // --- Animação "Crash Bandicoot" na Caixa ---
+    if (packageBox && packageBox.visible) {
+        // 1. Girar
+        packageBox.rotation.y += 2 * deltaTime; 
+
+        // 2. Flutuar (Onda Senoidal)
+        const floatY = Math.sin(elapsedTime * 4) * 0.5;
+        packageBox.position.y = pickupLocation.y + floatY;
+    }
+
 
     checkCollisions();
 
