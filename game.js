@@ -19,7 +19,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 // Luzes
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
 scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); 
+const directionalLight = new THREE.DirectionLigh(0xffffff, 1.0); 
 directionalLight.position.set(5, 10, 7);
 scene.add(directionalLight);
 
@@ -35,38 +35,37 @@ let packageBox = null;
 const loader = new GLTFLoader();
 const clock = new THREE.Clock(); 
 const keysPressed = {}; 
-const moveSpeed = 40; // MUDANÇA: Aumentado de 20 para 40
+const moveSpeed = 40; 
 const rotateSpeed = 3;  
 
-// --- LÓGICA DO JOGO (RE-ADICIONADA) ---
+// --- LÓGICA DO JOGO ---
 let temCaixa = false;
 let pontuacao = 0;
-let tempoRestante = 180; // 3 minutos
+let tempoRestante = 180; 
 let destinationObject = null;
-const collisionDistance = 4; // Distância para "pegar" a caixa
+const collisionDistance = 10; // MUDANÇA: Aumentado de 4 para 10 (Hitbox maior)
+let gameStarted = false; // MUDANÇA: Novo estado de jogo
 
-// Posições "Mapeadas" (chutadas por agora)
-const pickupLocation = new THREE.Vector3(10, 0.5, 10);
-const dropoffLocation = new THREE.Vector3(-15, 0.5, -10);
+// Posições "Mapeadas"
+// MUDANÇA: Aumentei a altura Y de 0.5 para 1.5 para flutuar acima do chão
+const pickupLocation = new THREE.Vector3(10, 1.5, 10);
+const dropoffLocation = new THREE.Vector3(-15, 0.5, -10); // O anel pode ficar baixo
 
 // Elementos da UI (para atualizar)
-// IMPORTANTE: O seu index.html precisa de ter <div id="timer-display"> e <div id="score-display">
 const timerDisplay = document.getElementById('timer-display');
 const scoreDisplay = document.getElementById('score-display');
 
-// --- LÓGICA DO JOGO (RE-ADICIONADA): Criar o Destino (Anel Brilhante) ---
+// --- Criar o Destino (Anel Brilhante) ---
 function createDestinationMarker() {
     const geometry = new THREE.TorusGeometry(3, 0.3, 16, 100);
-    // Material brilhante que não precisa de luz
     const material = new THREE.MeshBasicMaterial({ color: 0xffff00 }); 
     destinationObject = new THREE.Mesh(geometry, material);
-    destinationObject.rotation.x = Math.PI / 2; // Deita o anel
+    destinationObject.rotation.x = Math.PI / 2; 
     destinationObject.position.copy(dropoffLocation);
-    destinationObject.visible = false; // Começa escondido
+    destinationObject.visible = false; 
     scene.add(destinationObject);
 }
-createDestinationMarker(); // Chama a função para criar o anel
-
+createDestinationMarker();
 
 // --- Carregar Modelos ---
 // 1. Carregar a Cidade
@@ -89,11 +88,11 @@ loader.load(
     'src/caminhaozinho.glb', 
     (gltf) => {
         playerTruck = gltf.scene;
-        playerTruck.position.y = 0.5; 
+        // MUDANÇA: Aumentei a altura Y de 0.5 para 1.5 para não afundar
+        playerTruck.position.y = 1.5; 
         playerTruck.scale.set(15, 15, 15);
         playerTruck.rotation.y = Math.PI / 2; 
 
-        // Correção de Transparência
         playerTruck.traverse((child) => {
             if (child.isMesh) {
                 child.material.side = THREE.DoubleSide; 
@@ -116,8 +115,7 @@ loader.load(
     'src/caixinha.glb', 
     (gltf) => {
         packageBox = gltf.scene;
-        
-        packageBox.position.copy(pickupLocation); // Usa a posição "mapeada"
+        packageBox.position.copy(pickupLocation); // Põe no sítio de pickup (já com Y=1.5)
         packageBox.scale.set(5, 5, 5);
         
         packageBox.traverse((child) => {
@@ -125,7 +123,6 @@ loader.load(
                 child.material.side = THREE.DoubleSide;
             }
         });
-
         scene.add(packageBox);
         console.log("Caixinha carregada!");
     },
@@ -143,7 +140,7 @@ document.addEventListener('keyup', (event) => {
     keysPressed[event.key.toLowerCase()] = false;
 }, false);
 
-// --- LÓGICA DO JOGO (RE-ADICIONADA): Função de Colisão ---
+// --- Função de Colisão e Lógica do Jogo ---
 function checkCollisions() {
     if (!playerTruck || !packageBox || !destinationObject) {
         return; // Ainda não carregou tudo
@@ -156,7 +153,12 @@ function checkCollisions() {
             console.log("Pegou a caixa!");
             temCaixa = true;
             packageBox.visible = false;
-            destinationObject.visible = true; // Mostra o destino
+            destinationObject.visible = true;
+
+            // MUDANÇA: Inicia o temporizador do jogo!
+            if (!gameStarted) {
+                gameStarted = true;
+            }
         }
     }
     // Lógica 2: Entregar a caixa
@@ -165,15 +167,14 @@ function checkCollisions() {
         if (distanceToDestination < collisionDistance) {
             console.log("Entregou!");
             temCaixa = false;
-            destinationObject.visible = false; // Esconde o destino
+            destinationObject.visible = false;
             
-            // Aumenta a pontuação
             pontuacao++;
-            if(scoreDisplay) scoreDisplay.innerText = pontuacao; // Atualiza a UI
+            if(scoreDisplay) scoreDisplay.innerText = pontuacao; 
 
-            // Faz a caixa aparecer noutro sítio (pode criar uma lista de locais)
+            // Faz a caixa aparecer noutro sítio
             packageBox.position.copy(pickupLocation); // Por agora, volta ao início
-            packageBox.visible = true; // Mostra a caixa novamente
+            packageBox.visible = true;
         }
     }
 }
@@ -183,38 +184,36 @@ function animate() {
     requestAnimationFrame(animate);
     const deltaTime = clock.getDelta();
 
-    // --- LÓGICA DO JOGO (RE-ADICIONADA): Temporizador ---
-    if (tempoRestante > 0) {
+    // MUDANÇA: O temporizador só conta se o jogo tiver começado
+    if (gameStarted && tempoRestante > 0) {
         tempoRestante -= deltaTime;
-        if (timerDisplay) { // Verifica se o elemento da UI já existe
+        if (timerDisplay) { 
             timerDisplay.innerText = Math.floor(tempoRestante);
         }
-    } else if (timerDisplay) {
+    } else if (timerDisplay && tempoRestante <= 0) {
         timerDisplay.innerText = "FIM!";
-        // Aqui podemos parar o jogo
+        // Aqui podemos parar o jogo (ex: parar o movimento)
     }
+
 
     if (playerTruck) {
         // --- Lógica de Movimento WASD ---
-        // (Usando as suas direções preferidas)
         if (keysPressed['a']) {
-            playerTruck.rotation.y -= rotateSpeed * deltaTime; // Virar
+            playerTruck.rotation.y += rotateSpeed * deltaTime; 
         }
         if (keysPressed['d']) {
-            playerTruck.rotation.y += rotateSpeed * deltaTime; // Virar
+            playerTruck.rotation.y -= rotateSpeed * deltaTime; 
         }
         if (keysPressed['w']) {
-            playerTruck.translateZ(-moveSpeed * deltaTime); // Frente
+            playerTruck.translateZ(moveSpeed * deltaTime); 
         }
         if (keysPressed['s']) {
-            playerTruck.translateZ(moveSpeed * deltaTime); // Trás
+            playerTruck.translateZ(-moveSpeed * deltaTime); 
         }
         
-        // --- Câmera a Seguir o Camião ---
         controls.target.copy(playerTruck.position);
     }
 
-    // --- LÓGICA DO JOGO (RE-ADICIONADA): Correr a lógica de colisão ---
     checkCollisions();
 
     controls.update();
