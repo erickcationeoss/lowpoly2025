@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// MUDANÇA: Importar o DracoLoader
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 // --- Configuração Básica (Cena, Câmara, Luzes) ---
 const scene = new THREE.Scene();
@@ -16,12 +18,15 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-// Luzes
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); 
-scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); 
-directionalLight.position.set(5, 10, 7);
-scene.add(directionalLight);
+// --- MUDANÇA: Iluminação "Cartunesca" ---
+// Luz suave que vem de cima (céu) e de baixo (chão)
+const hemiLight = new THREE.HemisphereLight( 0xAAAAFF, 0x444422, 1.2 ); // Cor do céu, Cor do chão, Intensidade
+scene.add( hemiLight );
+// Luz do sol para dar direção
+const dirLight = new THREE.DirectionalLight( 0xffffff, 1.5 );
+dirLight.position.set( 5, 10, 7 );
+scene.add( dirLight );
+// --- FIM DA MUDANÇA DE LUZ ---
 
 // --- Controlo de Câmera (Rato) ---
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -32,10 +37,9 @@ controls.target.set(0, 0, 0);
 let playerTruck = null;
 let city = null;
 let packageBox = null; 
-const loader = new GLTFLoader();
 const clock = new THREE.Clock(); 
 const keysPressed = {}; 
-const moveSpeed = 40; 
+const moveSpeed = 60; // MUDANÇA: Aumentado de 40 para 60
 const rotateSpeed = 3;  
 
 // --- LÓGICA DO JOGO ---
@@ -51,9 +55,7 @@ const timerDisplay = document.getElementById('timer-display');
 const scoreDisplay = document.getElementById('score-display');
 
 // --- MUDANÇA: O NOSSO MAPA! ---
-// Esta é a nossa lista de locais. Use a ferramenta (Shift+Click) para adicionar mais!
-// O 'y: 3' é para garantir que flutua.
-// MUDANÇA: Lista atualizada com as suas 6 coordenadas mapeadas
+// A sua lista de locais distantes
 const listaDeLocais = [
     new THREE.Vector3(437.84, 3, -768.54),
     new THREE.Vector3(-256.48, 3, -1416.59),
@@ -62,8 +64,21 @@ const listaDeLocais = [
     new THREE.Vector3(-1615.66, 3, -771.33),
     new THREE.Vector3(-2724.90, 3, -786.20)
 ];
+// O local da PRIMEIRA caixa (perto do jogador)
+const localDaPrimeiraCaixa = new THREE.Vector3(15, 3, 10);
 let localAtualPickup = new THREE.Vector3();
 let localAtualDropoff = new THREE.Vector3();
+// --- FIM DA MUDANÇA ---
+
+// --- MUDANÇA: Configurar o DracoLoader ---
+const dracoLoader = new DRACOLoader();
+// Precisamos de dizer onde encontrar os "descodificadores" (na nuvem)
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+dracoLoader.setDecoderConfig({ type: 'js' });
+
+const loader = new GLTFLoader();
+// Diz ao GLTFLoader para usar o Draco
+loader.setDRACOLoader(dracoLoader);
 // --- FIM DA MUDANÇA ---
 
 // --- Criar o Destino (Anel Brilhante) ---
@@ -76,35 +91,6 @@ function createDestinationMarker() {
     scene.add(destinationObject);
 }
 createDestinationMarker();
-
-// --- FERRAMENTA DE MAPEAMENTO (NOVO!) ---
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-
-function onMouseClick(event) {
-    // Só ativa se o SHIFT estiver pressionado
-    if (!event.shiftKey) {
-        return;
-    }
-
-    // Converte a posição do rato para coordenadas do Three.js
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Dispara o raio
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-
-    if (intersects.length > 0) {
-        // Encontra o ponto exato onde o raio bateu
-        const point = intersects[0].point;
-        console.log("COORDENADA MAPEADA (use isto na 'listaDeLocais'):");
-        // Arredonda os números para 2 casas decimais e ajusta o Y
-        console.log(`new THREE.Vector3(${point.x.toFixed(2)}, 3, ${point.z.toFixed(2)}),`);
-    }
-}
-window.addEventListener('click', onMouseClick);
-// --- FIM DA FERRAMENTA DE MAPEAMENTO ---
 
 // --- Carregar Modelos ---
 loader.load('src/cidade.glb', (gltf) => {
@@ -139,8 +125,10 @@ loader.load('src/caixinha.glb', (gltf) => {
         if (child.isMesh) child.material.side = THREE.DoubleSide;
     });
     
-    // MUDANÇA: Escolhe o primeiro local aleatório
-    spawnNewPackage(); 
+    // MUDANÇA: A primeira caixa "nasce" perto do jogador
+    localAtualPickup.copy(localDaPrimeiraCaixa);
+    packageBox.position.copy(localAtualPickup);
+
     scene.add(packageBox);
     console.log("Caixinha carregada!");
 });
@@ -149,9 +137,9 @@ loader.load('src/caixinha.glb', (gltf) => {
 document.addEventListener('keydown', (event) => keysPressed[event.key.toLowerCase()] = true, false);
 document.addEventListener('keyup', (event) => keysPressed[event.key.toLowerCase()] = false, false);
 
-// --- MUDANÇA: LÓGICA DE JOGO ALEATÓRIA ---
+// --- LÓGICA DE JOGO ALEATÓRIA ---
 function spawnNewPackage() {
-    // Escolhe um local aleatório da nossa lista
+    // Agora, ele escolhe um local aleatório da sua lista de 6
     const randomIndex = Math.floor(Math.random() * listaDeLocais.length);
     localAtualPickup.copy(listaDeLocais[randomIndex]);
     
@@ -159,11 +147,10 @@ function spawnNewPackage() {
     let dropoffIndex;
     do {
         dropoffIndex = Math.floor(Math.random() * listaDeLocais.length);
-    } while (dropoffIndex === randomIndex); // Repete se for o mesmo sítio
+    } while (dropoffIndex === randomIndex); 
     
     localAtualDropoff.copy(listaDeLocais[dropoffIndex]);
 
-    // Define as posições dos objetos
     packageBox.position.copy(localAtualPickup);
     destinationObject.position.copy(localAtualDropoff);
     
@@ -172,34 +159,40 @@ function spawnNewPackage() {
     temCaixa = false;
 }
 
-// --- Função de Colisão e Lógica do Jogo (Atualizada) ---
+// --- Função de Colisão e Lógica do Jogo ---
 function checkCollisions() {
     if (!playerTruck || !packageBox || !destinationObject) return; 
 
     // Lógica 1: Pegar a caixa
     if (!temCaixa) {
-        const distanceToBox = playerTruck.position.distanceTo(packageBox.position);
+        // MUDANÇA: Usa 'localAtualPickup' em vez de 'packageBox.position'
+        const distanceToBox = playerTruck.position.distanceTo(localAtualPickup);
         if (distanceToBox < collisionDistance) {
             console.log("Pegou a caixa!");
             temCaixa = true;
             packageBox.visible = false;
-            destinationObject.visible = true; // Mostra o destino
+            destinationObject.visible = true; 
 
+            // MUDANÇA: A lógica da primeira entrega foi movida para aqui
+            // Se for a primeira entrega, escolhe um local da lista.
+            // Se não, isto não faz mal, porque 'spawnNewPackage' vai re-definir
             if (!gameStarted) {
                 gameStarted = true;
+                const dropoffIndex = Math.floor(Math.random() * listaDeLocais.length);
+                localAtualDropoff.copy(listaDeLocais[dropoffIndex]);
+                destinationObject.position.copy(localAtualDropoff);
             }
         }
     }
     // Lógica 2: Entregar a caixa
     else {
-        const distanceToDestination = playerTruck.position.distanceTo(destinationObject.position);
+        const distanceToDestination = playerTruck.position.distanceTo(localAtualDropoff);
         if (distanceToDestination < collisionDistance) {
             console.log("Entregou!");
             pontuacao++;
             if(scoreDisplay) scoreDisplay.innerText = pontuacao; 
 
-            // MUDANÇA: Chama a função para criar uma nova entrega aleatória
-            spawnNewPackage();
+            spawnNewPackage(); // Chama a função para criar uma nova entrega aleatória
         }
     }
 }
@@ -233,7 +226,6 @@ function animate() {
     if (packageBox && packageBox.visible) {
         packageBox.rotation.y += 2 * deltaTime; 
         const floatY = Math.sin(elapsedTime * 4) * 0.5;
-        // MUDANÇA: Usa a altura Y da sua posição de pickup + flutuação
         packageBox.position.y = localAtualPickup.y + floatY;
     }
 
